@@ -302,26 +302,26 @@ struct histogram<single> {
 
 //		std::for_each ( h.begin(), h.end(), [this,_norm](double& x) { x=x/_norm; });
   		for (std::vector<double>::iterator it=h.begin();it!=h.end();it++)
-			*it = *it/_norm;
+			*it = *it/_norm/_delta;
                 std::fstream fout;
 
 	        fout.open ("hist.dat",std::fstream::out);
-		for (int i=0; i < _mesh_no; i++)
+		_norm=0.0;
+		for (int i=0; i < _mesh_no; i++){
 			fout << i<< " "  << i*_delta - _field_length/2.0 << " " << h[i] << "\n";
+		//	_norm+=h[i];
+		}
+		std::cout << _norm << "\n";
 	}
 };
 
 int main ()
 {
 
-	return 0;
-}
 
 
-/*
-{
 	std::vector<double> v(1,0.0);
-        gaussian<single> g = gaussian<single>();
+        drawGaussian<single> g ;;
 
 	int N{100}, N_draw{1000000};
 	double field {10.0};
@@ -332,4 +332,3 @@ int main ()
         histogram<single> hist = histogram<single> (v);
         hist.make(N,field);
 }
-*/

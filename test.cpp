@@ -9,6 +9,14 @@ struct a {
 	std::shared_ptr <std::vector<double>> m_v;
 	a(std::shared_ptr <std::vector<double>>& _v):m_v(_v){}
 	void set(int n, double val) {(*m_v)[n]=val;}
+	virtual void  print () {std::cout << "this is parent print \n ";}
+};
+
+struct ca : public a {
+ca(std::shared_ptr <std::vector<double>>& _v):a(_v) {}
+
+void print () {std::cout << "this is child print  \n ";}
+
 };
 
 
@@ -25,6 +33,7 @@ int main ()
         
 	a v_a(v); 
 	b v_b(v);
+	int n_col, n_row, n_slice;
 	arma::Mat<double> M(5,5);
 	arma::Col<double> V(5);
         arma::Mat<double> s ( V.t() * M * V);
@@ -37,6 +46,10 @@ int main ()
 	std::cout << (*v)[5] << "\n";
 	v_b.set(5,20);
 	std::cout << (*v)[5] << "\n";
+
+	a v_ca (v);
+	ca d(v);
+//	v_ca.print ();
 	return 0;
 
 }

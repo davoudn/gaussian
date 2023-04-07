@@ -1,40 +1,55 @@
-
 #include "simulate.h"
-
-
-
-
-
-
-struct simulateGaussian: public drawSample<gaussian> {
+#include "analysis.h"
+struct simulateGaussian_metropolice: public drawSample<gaussian> {
        using t_pdf = typename std::shared_ptr<gaussian>;
 
-       simulateGaussian (t_pdf _pdf):drawSample<gaussian>(_pdf) {
-                    add_move(move_local<gaussian>(_pdf));
-                    add_meassure (meassure_2_point_correlation<gaussian>(_pdf));
+       simulateGaussian_metropolice (t_pdf _pdf):drawSample<gaussian>(_pdf) {
+                    this->add_move(new move_local<gaussian>(_pdf));
+                    this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
+       }
+
+       void analyse () {
+            std::cout << jack_knife (this->m_meassures[0]->m_results) << "\n";
+       }
+};
+
+struct simulateGaussian_langevin: public drawSample<gaussian> {
+       using t_pdf = typename std::shared_ptr<gaussian>;
+
+       simulateGaussian_langevin (t_pdf _pdf, double _D, double _dt):drawSample<gaussian>(_pdf) {
+                    this->add_move(new langevin<gaussian>(_pdf,_D,_dt));
+                    this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
+       }
+
+       void analyse () {
+            std::cout << jack_knife (this->m_meassures[0]->m_results) << "\n";
        }
 };
 
 
 
-
 int main()
 {
+	int N {20};
+	double delta {0.5};
+        arma::mat _Q (N,N);
+	for (int i=0; i <N ; i++)
+	    for (int j=0; j <N ; j++)
+		    if (i==j) _Q(i,j) = (1.0);
+		    else _Q(i,j) = delta;
 
-	std::shared_ptr<gaussian> g_pdf = std::make_shared<gaussian>(arma::ones(3,3),3);
+	std::shared_ptr<gaussian> g_pdf = std::make_shared<gaussian>(_Q,N);
 
-	std::cout << g_pdf->energy() << "\n";
+	std::cout << g_pdf->get_covariance_inv() << "\n";
+	g_pdf->get_eig_decompose();
+	
+	simulateGaussian_metropolice sg_metropolice(g_pdf);
+	sg_metropolice.do_it (10000);
+        sg_metropolice.analyse ();
 
-	std::cout << g_pdf->delta_energy(0,3.0) << "\n";
-
-	std::cout << g_pdf->energy(arma::ones(3)) << "\n";
-	g_pdf->set_config (arma::ones(3));
-     
-	std::cout << g_pdf->energy() << "\n";
-
-	std::cout << g_pdf->delta_energy(0,0.1) << "\n";
-
-	simulateGaussian sg_pdf(g_pdf);
+        simulateGaussian_langevin sg_langevin(g_pdf,1.0,1.0);
+        sg_langevin.do_it (10000);
+        sg_langevin.analyse ();
 
 	return 0;
 }
