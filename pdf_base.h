@@ -10,7 +10,7 @@ struct pdf {
 //	arma::Col<T> m_x;
         pdf(){}
         virtual T energy(){ return T(1);}
-        virtual arma::Col<T> force (){}
+        virtual const arma::Col<T>& force (){ std::cout << "This is parrent pdf force (). No force!";}
         virtual T delta_energy(int n,T _xnew){}
         virtual int size (){ return 0;}
         virtual double ratio(int n, T _xnew){}
@@ -20,10 +20,10 @@ struct pdf {
 
 
 struct gaussian:public pdf<double> {
-        arma::Mat<double> m_Q, m_U, m_stupid_fix,m_R;
-        arma::Col<double> m_lambda, m_x;
+        arma::Mat<double> m_Q, m_U, m_stupid_fix,m_R, m_Q_inv;
+        arma::Col<double> m_lambda, m_x, m_force;
         int m_dim;
-        gaussian (arma::Mat<double> _Q, int _dim):m_Q(_Q),m_U(_dim,_dim), m_R(_dim,_dim)
+        gaussian (arma::Mat<double> _Q, int _dim):m_Q(_Q),m_U(_dim,_dim), m_R(_dim,_dim),m_force(_dim), m_Q_inv(_dim,_dim)
                                                  ,m_lambda(_dim),m_x(arma::randu(_dim)),m_stupid_fix(1,1)
                                                  ,m_dim(_dim){}
 
@@ -48,8 +48,10 @@ struct gaussian:public pdf<double> {
           return m_stupid_fix(0,0)*0.5;
         }
  
-        arma::Col<double> force (){
-          return  m_Q * m_x;
+        const arma::Col<double>& force (){
+		m_force = -m_Q * m_x;
+	//	std::cout << m_force << "ff\n";
+          return m_force;
         }
 
         double delta_energy(int n, double _xnew){
@@ -81,18 +83,25 @@ struct gaussian:public pdf<double> {
 	{
 		return m_Q;
 	}
-        arma::Mat<double> get_covariance_inv ( )
+        void set_covariance_inv ( )
 	{
-		return m_Q.i();
+		m_Q_inv = m_Q.i();
+		return;
 	}
+
+        arma::Mat<double>& get_covariance_inv ()
+        {
+                return m_Q_inv;
+        }
+
 	
-	arma::Mat<double> get_eig_decompose()
+	void set_eig_decompose()
 	{
 		eig_sym(m_lambda, m_U, m_Q);
 		std :: cout << m_lambda << "\n";
 	}
 
-	        arma::Mat<double> get_chol_decompose()
+	void set_chol_decompose()
         {
 		m_R = arma::chol(m_Q);
                 std :: cout << m_R << "\n";
