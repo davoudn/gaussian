@@ -1,10 +1,13 @@
 #include "simulate.h"
 #include "analysis.h"
-struct simulateGaussian_metropolice: public drawSample<gaussian> {
+
+
+template <>
+struct simulate<local,gaussian>: public drawSample<gaussian> {
        using t_pdf = typename std::shared_ptr<gaussian>;
 
-       simulateGaussian_metropolice (t_pdf _pdf):drawSample<gaussian>(_pdf) {
-                    this->add_move(new move_local<gaussian>(_pdf));
+       simulate (t_pdf _pdf):drawSample<gaussian>(_pdf) {
+                    this->add_move(new move_type<local,gaussian>(_pdf));
                     this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
        }
 
@@ -12,8 +15,7 @@ struct simulateGaussian_metropolice: public drawSample<gaussian> {
             std::cout << jack_knife (this->m_meassures[0]->m_results) << "\n";
        }
 };
-
-struct simulateGaussian_langevin: public drawSample<gaussian> {
+/*struct simulateGaussian_langevin: public drawSample<gaussian> {
        using t_pdf = typename std::shared_ptr<gaussian>;
 
        simulateGaussian_langevin (t_pdf _pdf, double _D, double _dt):drawSample<gaussian>(_pdf) {
@@ -25,14 +27,14 @@ struct simulateGaussian_langevin: public drawSample<gaussian> {
             std::cout << jack_knife (this->m_meassures[0]->m_results) << "\n";
        }
 };
-
-
-struct simulateGaussian_eig_decompose: public drawSample<gaussian> {
+*/
+template <>
+struct simulate<langevin,gaussian>: public drawSample<gaussian> {
        using t_pdf = typename std::shared_ptr<gaussian>;
 
-       simulateGaussian_eig_decompose (t_pdf _pdf, int _nchanged):drawSample<gaussian>(_pdf) {
-                    this->add_move(new move_eig_decompose_gaussian(_pdf,_nchanged));
-                    this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
+       simulate (t_pdf _pdf, double _D, double _dt):drawSample<gaussian>(_pdf) {
+                    this->add_move(new move_type<langevin,gaussian>(_pdf,_D,_dt));
+//                  this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
        }
 
        void analyse () {
@@ -41,11 +43,26 @@ struct simulateGaussian_eig_decompose: public drawSample<gaussian> {
 };
 
 
-struct simulateGaussian_chol_decompose: public drawSample<gaussian> {
+template <>
+struct simulate<eigdecompose,gaussian>: public drawSample<gaussian> {
        using t_pdf = typename std::shared_ptr<gaussian>;
 
-       simulateGaussian_chol_decompose (t_pdf _pdf, int _nchanged):drawSample<gaussian>(_pdf) {
-                    this->add_move(new move_chol_decompose_gaussian(_pdf,_nchanged));
+       simulate (t_pdf _pdf, int _nchanged):drawSample<gaussian>(_pdf) {
+                    this->add_move(new move_type<eigdecompose,gaussian>(_pdf,_nchanged));
+//                    this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
+       }
+
+       void analyse () {
+            std::cout << jack_knife (this->m_meassures[0]->m_results) << "\n";
+       }
+};
+
+template <>
+struct simulate<choldecompose,gaussian>: public drawSample<gaussian> {
+       using t_pdf = typename std::shared_ptr<gaussian>;
+
+       simulate<choldecompose,gaussian> (t_pdf _pdf, int _nchanged):drawSample<gaussian>(_pdf) {
+                    this->add_move(new move_type<choldecompose,gaussian>(_pdf,_nchanged));
                     this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
        }
 
@@ -54,11 +71,12 @@ struct simulateGaussian_chol_decompose: public drawSample<gaussian> {
        }
 };
 
-struct simulateGaussian_stochastic_relaxation: public drawSample<gaussian> {
+template<>
+struct simulate<stochasticrelaxation,gaussian>: public drawSample<gaussian> {
        using t_pdf = typename std::shared_ptr<gaussian>;
 
-       simulateGaussian_stochastic_relaxation (t_pdf _pdf, double _omega, double _dt ):drawSample<gaussian>(_pdf) {
-                    this->add_move(new move_stochastic_relaxation(_pdf, _omega, _dt));
+       simulate (t_pdf _pdf, double _omega, double _dt ):drawSample<gaussian>(_pdf) {
+                    this->add_move(new move_type<stochasticrelaxation,gaussian>(_pdf, _omega, _dt));
                     this->add_meassure (new meassure_2_point_correlation<gaussian>(_pdf));
        }
 
@@ -89,24 +107,22 @@ int main()
 	sg_metropolice.do_it (10000);
         sg_metropolice.analyse ();
 
+*/
 
-/*
-        simulateGaussian_langevin sg_langevin(g_pdf,1.0,0.05);
-        sg_langevin.do_it (100000);
+        simulate<langevin,gaussian> sg_langevin(g_pdf,1.0,0.05);
+        sg_langevin.do_it (10000);
         sg_langevin.analyse ();
-*/
-	/*
 
-        simulateGaussian_eig_decompose sg_eig_decompose(g_pdf,1);
-        sg_eig_decompose.do_it (10000);
+	
+/*
+        simulateGaussian_eig_decompose sg_eig_decompose(g_pdf,5);
+        sg_eig_decompose.do_it (1000);
         sg_eig_decompose.analyse ();
-
 */
-        simulateGaussian_stochastic_relaxation sg_stochastic_relaxation(g_pdf, 1.0, 1.0);
-        sg_stochastic_relaxation.do_it (100000);
+
+/*        simulateGaussian_stochastic_relaxation sg_stochastic_relaxation(g_pdf, 1.0, 1.0);
+        sg_stochastic_relaxation.do_it (5000);
         sg_stochastic_relaxation.analyse ();
-
-
-
+*/
 	return 0;
 }

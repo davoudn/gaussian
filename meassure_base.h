@@ -13,8 +13,11 @@ struct meassure_base{
 
 };
 
+template <typename MEASSURETYPE, typename PDF>
+struct meassure_type;
+
 template <typename PDF>
-struct meassure_2_point_correlation: public meassure_base <PDF>{
+struct meassure_type<gaussian,PDF>: public meassure_base <PDF>{
         using t_pdf = typename std::shared_ptr<PDF>;
 
         arma::Mat<double> m_correlations;

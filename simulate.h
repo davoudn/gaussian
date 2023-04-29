@@ -69,3 +69,7 @@ struct drawSample
         }
 };
 
+template <typename MOVETYPE, typename PDF>
+struct simulate;
+
+
