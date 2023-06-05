@@ -61,7 +61,7 @@ struct move_type<local,PDF>:public move_base<PDF>{
  //   std :: cout << site << " gg " << x_new << "\n";
     if (  this->m_pdf->ratio(m_site,x_new) > m_u2() ){
        this->m_acc = true;
-       this->m_pdf->m_x[m_site] = x_new;
+       this->m_pdf->update(m_site,x_new);
     }
     return;
   }
