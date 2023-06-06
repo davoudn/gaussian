@@ -47,21 +47,31 @@ struct move_type<local,PDF>:public move_base<PDF>{
         using t_pdf = std::shared_ptr<PDF>;
         unif <int>   m_u1;
         unif<double> m_u2;
-        int m_site;
-  move_type(t_pdf &_pdf):move_base<PDF>(_pdf), m_u1(0,_pdf->size()), m_u2(0.0,1.0){}
+        int m_nfield;
+        int m_l
+  move_type(t_pdf &_pdf):move_base<PDF>(_pdf), m_u1(0,_pdf->size()), m_u2(0.0,1.0),m_nfield(0),m_l(0){}
 
+  void increment()
+  {
+    m_field++;
+    if (m_nfield >= this->m_pdf->m_Nfields ) {
+	    m_nfield = 0;
+      m_l++;
+    }
+    if (m_l >= this->m_pdf->m_Ltrot)
+      m_l=0;
+    
+    return;
+  }
   void move()
   {
     this->m_acc = false;
-//    int site = m_u1();
-    m_site++;
-    if (m_site >= this->m_pdf->size() ) 
-	    m_site = 0;
-    double x_new = this->m_pdf->m_x[m_site] + (m_u2()-0.5)*1.0;
+    increment();
+    double x_new = this->m_pdf->m_x(m_l,m_nfield) + (m_u2()-0.5)*1.0;
  //   std :: cout << site << " gg " << x_new << "\n";
-    if (  this->m_pdf->ratio(m_site,x_new) > m_u2() ){
+    if (  this->m_pdf->ratio(m_l,m_nfield,x_new) > m_u2() ){
        this->m_acc = true;
-       this->m_pdf->update(m_site,x_new);
+       this->m_pdf->update(m_l,m_nfield,x_new);
     }
     return;
   }
