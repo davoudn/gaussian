@@ -133,33 +133,64 @@ struct Op {
                                         });
           return m_Mat
 	}
+	void set_elements(int x, int y, T value)
+	{
+                 m_elements.push_back(std::make_pair(x, y));
+                 m_value(std::make_pair(x, y)) = cone;
+	}
+	void set_g(T val)
+	{
+	   g = cone * m_dtau;
+	}
 };
 
 template <typename T>
 struct Bmatrices {
-        std::vector< arma::Mat<T> > m_B, m_Binv, m_Gr
-        arma::Mat<T>  m_Ble, m_Blt, m_Gr;
+        std::vector< arma::Mat<T> > m_B, m_Binv;
+        arma::Mat<T>  m_Bless, m_Bgreater, m_G;
         int m_L, m_N, m_l;
-        Bmatrices(int _L, int _N):m_l(0), m_L(_L), m_N(_N), m_B(_L, arma::Mat<T>(_N, _N)), m_Binv(_L, arma::Mat<t_complex>(_N, _N)), m_Gr(_N, _N),  m_Ble(_N, _N),  m_Blr(_N, _N)
+        Bmatrices(int _L, int _N):m_l(0), m_L(_L), m_N(_N), m_B(_L, arma::Mat<T>(_N, _N)), m_Binv(_L, arma::Mat<t_complex>(_N, _N)), m_G(_N, _N),  m_Bless(_N, _N),  m_Bgreater(_N, _N)
         {}
 
 	void set_m_l(int l){
-		m_l = l;
-		return;
+             m_l = l;
+	     return;
 	}
-        T ratio (int n, int l, T d)
+        T ratio (int n, int m, int l, T d)
         {
-           propagate (l);
-           return 1.0 + d * (m_Blr * m_Ble * m_Gr)(n,n);
+             propagate (l);
+             return 1.0 + d * (m_Bgreater * m_Bless * m_G)(n,n);
         }
 
         void propagate (int l){
-             m_l = l;
+             if ( m_l == l ){
+	        return;
+	     } else if ( l > m_l ) {
+                    for(int i=m_l+1; i<= l; i++ ){	
+			  m_G = Binv[i] * m_G * B[i];   
+			  Bless = Bless * B[i];
+			  Bgreater = Binv[i] * Bgreater;
+                    }
+                    m_l = l;
+	     } else if (l < m_l) {
+                    for(int i=m_l-1; i>= l; i-- ){
+                          m_G = B[i] * m_G * Binv[i];
+                          Bless = Bless * Binv;
+                          Bgreater = B[i] * Bgreater;
+                    }
+                    m_l = l;
+	     }
+	     return;
         }
 
         void update (int n, int m, int l, T d)
         {
-
+             propagate(l);
+             arma::Mat<T> tmp(m_N,m_N);
+	     tmp(n,m) = d;
+	     m_G = m_G + (m_G *m_Bgreater) * tmp * (m_Bless *m_G) / (cone + d);
+	     m_B[l] *= tmp;
+	     m_Binv[l] = inv(m_B[l]);
         }
 };
 
@@ -190,16 +221,34 @@ struct fermion:public pdf<T> {
 
        void init_Bmatrices ()
        {
-	   arma::Mat<T> expT (exp (-m_T));
            for (int l=0; l < m_Ltrot; l++){
-              m_Bmatrices.B[l] = expT * exp (-get_Vl(l));
+              m_Bmatrices.B[l] = exp (-m_T) * exp (-get_Vl(l));
 	   }
 	   return;
        }
 
        T ratio(int l, int nfield, T _xnew)
        {
-            
+	    T _ratio{ T(0) };
+	    Bmatrices _Bmatrices {m_Bmatrices};
+            arma::Mat<T> _Delta { exp( (_xnew - m_x[nfield]) * m_V[nfield].g * m_V[nfield].get_matrix() ) };
+
+	    // very inefficient //
+	        for ( auto it = m_V[i].m_elements.begin(); it != m_V[i].m_elements.end(); ++it ){
+		        _ratio *= _Bmatrices.ratio( *it.first , *it.second, l, _Delta(*it.first , *it.second));     	    
+                        _Bmatrices.update (*it.first , *it.second, l, _Delta(*it.first , *it.second));
+                    }
+	    return _ratio;
+       }
+
+       void update (int l, int nfield, T _xnew){
+	          arma::Mat<T> _Delta { exp( (_xnew - m_x[nfield]) * m_V[nfield].g * m_V[nfield].get_matrix() ) };
+
+                  for ( auto it = m_V[i].m_elements.begin(); it != m_V[i].m_elements.end(); ++it ){
+                        m_Bmatrices.update (*it.first , *it.second, l, _Delta(*it.first , *it.second));
+                  }
+		  m_x(l,nfield) = _xnew;
+		  return;
        }
 
 };
@@ -222,7 +271,7 @@ struct SquareHubbard:public pdf<T> {
         boson<T>   m_boson;
         int m_Lattdim, m_Nsites;
         lattice<Square> m_lattice;
-        VanilaHubbard(T _U, T _t, T _beta, T _mu, int _Ltrot, int _Lattdim,int _Nfields):m_fermoin<T>(_Ltrot,_Lattdim*_Lattdim,_Nfields),
+        SquareHubbard(T _U, T _t, T _beta, T _mu, int _Ltrot, int _Lattdim,int _Nfields):m_fermoin<T>(_Ltrot,_Lattdim*_Lattdim,_Nfields),
                                                                                   m_boson<T>(_Ltrot,_Lattdim*_Lattdim,_Nfields), m_lattice(_Lattdim,_Lattdim),
                                                                                   m_U(_U),m_t(_t),m_beta(_beta),m_mu(_mu),m_Lattdim(_Lattdim),
                                                                                   m_Nsites(_Lattdim*_Lattdim),m_dtau(_beta/_Ltrot)
@@ -235,22 +284,19 @@ struct SquareHubbard:public pdf<T> {
         {
             int nsite{0};
             for (int nfield=0; nfield < m_fermion.m_Nfields; nfield++){
-                 m_fermion.m_V[nfield].m_elements.push_back(std::make_pair(nsite,nsite));
-                 m_fermion.m_V[nfield].m_value(std::make_pair(nsite,nsite)) = cone;
-                 m_fermion.m_V[nfield].g = cone * m_dtau;
+                 m_fermion.m_V[nfield].set_elements(nsite,nsite,cone);
+                 m_fermion.m_V[nfield].set_g = cone * m_dtau;
                  nsite++;
             }
             
             // hubbard model in square lattice with nearest neigghbor hopping.
             for (int i=0; i < m_lattice.get_Nsites(); i++){
                 for (int j=0; j< m_lattice.get_1st_nn_list(i).size(); j++){
-                    fermion.m_T.m_elements.push_back(std::make_pair(i,j));
-                    fermion.m_T.m_values[std::make_pair(i,j)] = -m_t;
+                    fermion.m_T.set_elements(i,j,-m_t);
                 }
-                fermion.m_T.m_elements.push_back(std::make_pair(i,i));
-                fermion.m_T.m_values[std::make_pair(i,i)] = m_mu;
-                fermion.m_T.g = cone * m_dtau;
+                fermion.m_T.set_elements(i,i,-m_u);
             }
+	    fermion.m_T.g = cone * m_dtau;
             m_fermions.init_Bmatrices();
             return;
         }

@@ -33,10 +33,8 @@ struct drawSample
         void move(){
                 for (int it=0; it < m_moves.size(); it++){
                        m_moves[it]->move();
-                       if (m_moves[it]->m_acc == true ){
-                       //   meassure ();
-                       }
 		       meassure ();
+		       }
                 }
                 return;
         }
