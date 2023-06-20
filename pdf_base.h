@@ -146,21 +146,18 @@ struct Op {
 
 template <typename T>
 struct Bmatrices {
+
+        private:
         std::vector< arma::Mat<T> > m_B, m_Binv;
-        arma::Mat<T>  m_Bless, m_Bgreater, m_G;
+        arma::Mat<T>  m_Bless, m_Bgreater, m_G, m_I;
         int m_L, m_N, m_l;
-        Bmatrices(int _L, int _N):m_l(0), m_L(_L), m_N(_N), m_B(_L, arma::Mat<T>(_N, _N)), m_Binv(_L, arma::Mat<t_complex>(_N, _N)), m_G(_N, _N),  m_Bless(_N, _N),  m_Bgreater(_N, _N)
+        Bmatrices(int _L, int _N):m_l(0), m_L(_L), m_N(_N), m_B(_L, arma::Mat<T>(_N, _N)), m_Binv(_L, arma::Mat<t_complex>(_N, _N)), m_G(_N, _N),  m_Bless(_N, _N),  m_Bgreater(_N, _N),I(_N, _N, fill::eye);
         {}
 
 	void set_m_l(int l){
              m_l = l;
 	     return;
 	}
-        T ratio (int n, int m, int l, T d)
-        {
-             propagate (l);
-             return 1.0 + d * (m_Bgreater * m_Bless * m_G)(n,n);
-        }
 
         void propagate (int l){
              if ( m_l == l ){
@@ -183,15 +180,23 @@ struct Bmatrices {
 	     return;
         }
 
+        public:
+        T ratio (int n, int m, int l, T d)
+        {
+             propagate (l);
+             return 1.0 + d * ( m_I - m_G)(n,n);
+        }
+
         void update (int n, int m, int l, T d)
         {
              propagate(l);
              arma::Mat<T> tmp(m_N,m_N);
 	     tmp(n,m) = d;
-	     m_G = m_G + (m_G *m_Bgreater) * tmp * (m_Bless *m_G) / (cone + d);
+	     m_G = m_G + (m_G * m_Bgreater) * tmp * (m_Bless * m_G) / (cone + d);
 	     m_B[l] *= tmp;
 	     m_Binv[l] = inv(m_B[l]);
         }
+	 
 };
 
 
@@ -208,47 +213,50 @@ struct fermion:public pdf<T> {
 
        arma::Mat<T> exp (arma::Mat<T>& mat)
        {
-           return;
+              return;
        }
        arma::Mat<T> get_Vl(int l)
        {
-	   arma::Mat<T> vtmp(_N,_N)
-	   for (int nfield=0; nfield<m_Nfields; nfield++){
-               vtmp = vtmp + m_x(l,nfield) * m_V[nfield].g * m_V[nfield].get_matrix();
-	   }
-	   return vtmp;
+	      arma::Mat<T> vtmp(_N,_N)
+	      for (int nfield=0; nfield<m_Nfields; nfield++){
+                  vtmp = vtmp + m_x(l,nfield) * m_V[nfield].g * m_V[nfield].get_matrix();
+	      }
+	      return vtmp;
        }
 
        void init_Bmatrices ()
        {
-           for (int l=0; l < m_Ltrot; l++){
-              m_Bmatrices.B[l] = exp (-m_T) * exp (-get_Vl(l));
-	   }
-	   return;
+              for (int l=0; l < m_Ltrot; l++){
+                  m_Bmatrices.B[l] = exp (-m_T) * exp (-get_Vl(l));
+	      }
+	      return;
        }
 
-       T ratio(int l, int nfield, T _xnew)
+       T ratio (int l, int nfield, T _xnew)
        {
-	    T _ratio{ T(0) };
-	    Bmatrices _Bmatrices {m_Bmatrices};
-            arma::Mat<T> _Delta { exp( (_xnew - m_x[nfield]) * m_V[nfield].g * m_V[nfield].get_matrix() ) };
+	       T _ratio{ T(0) };
+	       Bmatrices _Bmatrices {m_Bmatrices};
+               arma::Mat<T> _Delta { exp( (_xnew - m_x[nfield]) * m_V[nfield].g * m_V[nfield].get_matrix() ) };
+	       for (int i=0; i< m_Nsites; ++i)
+		   _Delta(i,i) -= T(1);
 
-	    // very inefficient //
-	        for ( auto it = m_V[i].m_elements.begin(); it != m_V[i].m_elements.end(); ++it ){
-		        _ratio *= _Bmatrices.ratio( *it.first , *it.second, l, _Delta(*it.first , *it.second));     	    
-                        _Bmatrices.update (*it.first , *it.second, l, _Delta(*it.first , *it.second));
+	    //  //
+	       for ( auto it = m_V[i].m_elements.begin(); it != m_V[i].m_elements.end(); ++it ){
+		        _ratio *= _Bmatrices.ratio( it->first , it->second, l, _Delta(it->first , it->second));     	    
+                        _Bmatrices.update (it->first , it->second, l, _Delta(it->first , it->second));
                     }
-	    return _ratio;
+	       return _ratio;
        }
 
-       void update (int l, int nfield, T _xnew){
-	          arma::Mat<T> _Delta { exp( (_xnew - m_x[nfield]) * m_V[nfield].g * m_V[nfield].get_matrix() ) };
+       void update (int l, int nfield, T _xnew)
+       {
+	       arma::Mat<T> _Delta { exp( (_xnew - m_x[nfield]) * m_V[nfield].g * m_V[nfield].get_matrix() ) };
 
-                  for ( auto it = m_V[i].m_elements.begin(); it != m_V[i].m_elements.end(); ++it ){
-                        m_Bmatrices.update (*it.first , *it.second, l, _Delta(*it.first , *it.second));
-                  }
-		  m_x(l,nfield) = _xnew;
-		  return;
+               for ( auto it = m_V[i].m_elements.begin(); it != m_V[i].m_elements.end(); ++it ){
+                   m_Bmatrices.update (it->first , it->second, l, _Delta(it->first , it->second));
+               }
+	       m_x(l,nfield) = _xnew;
+	       return;
        }
 
 };
